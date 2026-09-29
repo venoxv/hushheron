@@ -1,0 +1,9 @@
+.git
+.next
+node_modules
+data
+public/managed
+coverage
+*.log
+*.tsbuildinfo
+.env.local

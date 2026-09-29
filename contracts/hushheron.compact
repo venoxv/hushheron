@@ -1,0 +1,85 @@
+/**
+ * HushHeron survey contract (one deployment per survey).
+ *
+ * Public: creator key commitment, approved credential commitments, used
+ * nullifiers, anonymous answer commitments, counts and open/closed status.
+ * Private: creator secret, participant credential secret, Merkle path, answer
+ * and answer salt. Only the answer commitment is deliberately disclosed.
+ */
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+struct AnswerMaterial {
+  answer: Uint<8>,
+  salt: Bytes<32>
+}
+
+export ledger creatorKey: Bytes<32>;
+export ledger eligibilityTree: HistoricMerkleTree<10, Bytes<32>>;
+export ledger approvedCommitments: Set<Bytes<32>>;
+export ledger usedNullifiers: Set<Bytes<32>>;
+export ledger answerCommitments: Map<Uint<64>, Bytes<32>>;
+export ledger eligibleCount: Counter;
+export ledger responseCount: Counter;
+export ledger isClosed: Boolean;
+
+witness localSecret(): Bytes<32>;
+witness eligibilityPath(commitment: Bytes<32>): MerkleTreePath<10, Bytes<32>>;
+
+export circuit creatorCommitment(secret: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "hushheron:creator:v1"), secret]);
+}
+
+export circuit eligibilityCommitment(secret: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "hushheron:eligible:v1"), secret]);
+}
+
+export circuit responseNullifier(secret: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "hushheron:nullifier:v1"), secret]);
+}
+
+export circuit answerCommitment(answer: Uint<8>, salt: Bytes<32>): Bytes<32> {
+  return persistentHash<AnswerMaterial>(AnswerMaterial { answer, salt });
+}
+
+constructor(key: Bytes<32>) {
+  creatorKey = disclose(key);
+  isClosed = false;
+  eligibleCount.increment(0);
+  responseCount.increment(0);
+}
+
+export circuit approveParticipant(commitment: Bytes<32>): [] {
+  assert(creatorCommitment(localSecret()) == creatorKey, "Creator approval required");
+  assert(!isClosed, "Survey is closed");
+  assert(!approvedCommitments.member(disclose(commitment)), "Already approved");
+  approvedCommitments.insert(disclose(commitment));
+  eligibilityTree.insert(disclose(commitment));
+  eligibleCount.increment(1);
+}
+
+export circuit submitAnswer(answer: Uint<8>, salt: Bytes<32>): [] {
+  assert(!isClosed, "Survey is closed");
+  assert(answer >= 1, "Answer is below range");
+  assert(answer <= 5, "Answer is above range");
+
+  const secret = localSecret();
+  const commitment = eligibilityCommitment(secret);
+  const path = eligibilityPath(commitment);
+  assert(path.leaf == commitment, "Credential does not match path");
+  assert(eligibilityTree.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))), "Not eligible");
+
+  const nullifier = responseNullifier(secret);
+  assert(!usedNullifiers.member(disclose(nullifier)), "Already submitted");
+  usedNullifiers.insert(disclose(nullifier));
+
+  const id = disclose(responseCount.read() as Uint<64>);
+  answerCommitments.insert(id, disclose(answerCommitment(answer, salt)));
+  responseCount.increment(1);
+}
+
+export circuit closeSurvey(): [] {
+  assert(creatorCommitment(localSecret()) == creatorKey, "Creator approval required");
+  isClosed = true;
+}
