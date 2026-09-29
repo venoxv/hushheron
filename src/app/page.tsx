@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import Image from 'next/image';
+import { Brand } from '@/components/brand';
 
 export default function Home() {
   return <>
     <header className="site-header">
-      <Link className="brand" href="/"><span className="brand-mark">h</span> hushheron<span style={{ color: 'var(--sea)' }}>.</span></Link>
+      <Brand />
       <nav className="top-nav"><a href="#how">How it works</a><a href="#privacy">Privacy</a><Link className="button" href="/app">Enter the app <span aria-hidden>↗</span></Link></nav>
     </header>
     <main>
@@ -14,7 +16,7 @@ export default function Home() {
           <p className="muted">Ask what matters. Hear from the right people. Protect the person behind every answer.</p>
           <div className="hero-actions"><Link className="button" href="/app">Explore surveys <span aria-hidden>↗</span></Link><a className="text-link" href="#how">See how it works ↓</a></div>
         </div>
-        <div className="hero-art" aria-label="Abstract HushHeron emblem beneath a moon"><div className="heron" aria-hidden>h</div><div className="art-caption"><span>Private by design</span><span>Powered by Midnight</span></div></div>
+        <div className="hero-art"><Image className="hero-logo" src="/logo_hushheron.png" alt="HushHeron heron protecting a private conversation" width={500} height={500} priority unoptimized /><div className="art-caption"><span>Private by design</span><span>Powered by Midnight</span></div></div>
       </section>
       <section className="landing-section" id="how"><div className="section-inner">
         <div className="section-heading"><div><div className="eyebrow">Simple for everyone</div><h2 className="serif">Three steps. One honest conversation.</h2></div></div>

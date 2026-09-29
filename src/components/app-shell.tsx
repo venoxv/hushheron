@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WalletButton } from './wallet-provider';
+import { Brand } from './brand';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   return <div className="app-shell">
-    <aside className="sidebar"><Link className="brand" href="/"><span className="brand-mark">h</span> hushheron<span style={{ color: 'var(--sea)' }}>.</span></Link>
+    <aside className="sidebar"><Brand />
       <div className="side-menu"><span className="eyebrow" style={{ padding: '0 14px 9px' }}>Workspace</span>
         <Link className={pathname === '/app' ? 'active' : ''} href="/app">⌂ &nbsp; Overview</Link>
         <Link className={pathname.startsWith('/app/create') ? 'active' : ''} href="/app/create">＋ &nbsp; Create survey</Link>

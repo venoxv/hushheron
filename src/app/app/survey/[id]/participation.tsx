@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useWallet } from '@/components/wallet-provider';
 import { encryptAnswer, hasSurveyKey, secretFor } from '@/lib/crypto-client';
-import { randomSecret, type Survey } from '@/lib/types';
+import { randomSecret, type EligibilityRequest, type Survey } from '@/lib/types';
 
 type Pending = { commitment: string; ciphertext: string };
 
@@ -35,6 +35,10 @@ export function Participation({ survey }: { survey: Survey }) {
           try { setPendingUpload(JSON.parse(pending) as Pending); } catch { /* invalid local draft */ }
         }
         const commitment = midnight.commitmentFor(secret);
+        void fetch(`/api/surveys/${survey.id}/requests`)
+          .then(async (response) => response.ok ? await response.json() as EligibilityRequest[] : [])
+          .then((requests) => { if (active) setRequested(requests.some((item) => item.commitment === commitment)); })
+          .catch(() => { /* approval state remains available from Preprod */ });
         const [isApproved, state] = await Promise.all([
           midnight.isEligible(survey.contractAddress, commitment),
           midnight.readSurveyState(survey.contractAddress),

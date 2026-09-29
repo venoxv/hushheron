@@ -7,7 +7,7 @@ import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import { createProofProvider, type MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
 import { fromHex, toHex, type ContractAddress } from '@midnight-ntwrk/midnight-js-protocol/compact-runtime';
 import { Binding, Proof, SignatureEnabled, Transaction, type FinalizedTransaction } from '@midnight-ntwrk/midnight-js-protocol/ledger';
-import type { ConnectedAPI, InitialAPI } from '@midnight-ntwrk/dapp-connector-api';
+import type { Configuration, ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { firstValueFrom } from 'rxjs';
 import * as HushHeron from '../../managed/hushheron/contract/index.js';
 import { inMemoryPrivateStateProvider } from './in-memory-private-state-provider';
@@ -16,6 +16,7 @@ import { hex } from './types';
 type PrivateState = { secret: Uint8Array };
 type Circuits = 'approveParticipant' | 'submitAnswer' | 'closeSurvey';
 type Providers = MidnightProviders<Circuits, 'hushheronState', PrivateState>;
+type ShieldedAddresses = Awaited<ReturnType<ConnectedAPI['getShieldedAddresses']>>;
 
 const INDEXER = 'https://indexer.preprod.midnight.network/api/v4/graphql';
 const INDEXER_WS = 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws';
@@ -27,14 +28,6 @@ export type PublicSurveyState = {
   approved: string[];
   answerCommitments: string[];
 };
-
-export function detectWallets(): Array<{ id: string; name: string }> {
-  if (typeof window === 'undefined') return [];
-  const registry = (window as typeof window & { midnight?: Record<string, InitialAPI> }).midnight ?? {};
-  return Object.entries(registry)
-    .filter(([, api]) => api && typeof api.connect === 'function' && /^4\./.test(api.apiVersion ?? ''))
-    .map(([id, api]) => ({ id, name: api.name || id }));
-}
 
 function witnesses() {
   return {
@@ -91,51 +84,84 @@ export async function hasSubmitted(address: string, secret: Uint8Array): Promise
 }
 
 export class WalletSession {
+  private providersPromise: Promise<Providers> | null = null;
+
   private constructor(
     readonly api: ConnectedAPI,
     readonly address: string,
-    private readonly providers: Providers,
+    private readonly config: Configuration,
+    private readonly addresses: ShieldedAddresses,
   ) {}
 
-  static async connect(walletId: string): Promise<WalletSession> {
-    const registry = (window as typeof window & { midnight?: Record<string, InitialAPI> }).midnight ?? {};
-    const initial = registry[walletId];
-    if (!initial || !/^4\./.test(initial.apiVersion ?? '')) throw new Error('A compatible Midnight wallet was not found');
+  static async fromConnected(api: ConnectedAPI): Promise<WalletSession> {
     setNetworkId('preprod');
-    const api = await initial.connect('preprod');
-    const [status, config, addresses, unshielded] = await Promise.all([
-      api.getConnectionStatus(), api.getConfiguration(), api.getShieldedAddresses(), api.getUnshieldedAddress(),
-    ]);
-    if (status.status !== 'connected' || config.networkId !== 'preprod' || !addresses.shieldedCoinPublicKey) {
+    // Connector calls are sequential: some extensions prompt for each permission.
+    const status = await api.getConnectionStatus();
+    const config = await api.getConfiguration();
+    if (status.status !== 'connected' || config.networkId !== 'preprod') {
       throw new Error('Switch your wallet to Midnight Preprod and reconnect');
     }
-    const zkConfigProvider = new FetchZkConfigProvider<Circuits>(window.location.origin, fetch.bind(window));
-    const proofProvider = createProofProvider(await dappConnectorProvingProvider(api, zkConfigProvider));
+    const addresses = await api.getShieldedAddresses();
+    if (!addresses.shieldedCoinPublicKey || !addresses.shieldedEncryptionPublicKey) {
+      throw new Error('The wallet did not provide the shielded keys needed for Midnight transactions');
+    }
+    // The unshielded address is for display only; proof and transaction setup
+    // must not turn a successful connection into a failed connection.
+    let address = addresses.shieldedAddress;
+    try { address = (await api.getUnshieldedAddress()).unshieldedAddress; } catch { /* display the shielded address */ }
+    return new WalletSession(api, address, config, addresses);
+  }
+
+  private async makeProviders(): Promise<Providers> {
+    const zkConfigProvider = new FetchZkConfigProvider<Circuits>(
+      new URL('/managed/hushheron/', window.location.origin).toString(), fetch.bind(window),
+    );
+    try {
+      await zkConfigProvider.getVerifierKeys(['approveParticipant', 'submitAnswer', 'closeSurvey']);
+    } catch (cause) {
+      throw new Error('The app could not load its compiled Midnight verifier keys. Check /managed/hushheron/keys/ on this host.', { cause });
+    }
+    let proofProvider: Providers['proofProvider'];
+    try {
+      proofProvider = createProofProvider(await dappConnectorProvingProvider(this.api, zkConfigProvider));
+    } catch (cause) {
+      throw new Error('The wallet could not initialize its Midnight proving provider. Check its proof-server setup and try again.', { cause });
+    }
     const providers: Providers = {
       privateStateProvider: inMemoryPrivateStateProvider<'hushheronState', PrivateState>(),
-      publicDataProvider: indexerPublicDataProvider(config.indexerUri, config.indexerWsUri),
+      publicDataProvider: indexerPublicDataProvider(this.config.indexerUri, this.config.indexerWsUri),
       zkConfigProvider,
       proofProvider,
       walletProvider: {
-        getCoinPublicKey: () => addresses.shieldedCoinPublicKey,
-        getEncryptionPublicKey: () => addresses.shieldedEncryptionPublicKey,
+        getCoinPublicKey: () => this.addresses.shieldedCoinPublicKey,
+        getEncryptionPublicKey: () => this.addresses.shieldedEncryptionPublicKey,
         balanceTx: async (tx) => {
-          const balanced = await api.balanceUnsealedTransaction(toHex(tx.serialize()));
+          const balanced = await this.api.balanceUnsealedTransaction(toHex(tx.serialize()));
           return Transaction.deserialize<SignatureEnabled, Proof, Binding>('signature', 'proof', 'binding', fromHex(balanced.tx)) as FinalizedTransaction;
         },
       },
       midnightProvider: {
         submitTx: async (tx) => {
-          await api.submitTransaction(toHex(tx.serialize()));
+          await this.api.submitTransaction(toHex(tx.serialize()));
           return tx.identifiers()[0];
         },
       },
     };
-    return new WalletSession(api, unshielded.unshieldedAddress, providers);
+    return providers;
+  }
+
+  private getProviders(): Promise<Providers> {
+    if (!this.providersPromise) {
+      this.providersPromise = this.makeProviders().catch((cause) => {
+        this.providersPromise = null;
+        throw cause;
+      });
+    }
+    return this.providersPromise;
   }
 
   async deploy(creatorSecret: Uint8Array): Promise<string> {
-    const contract = await deployContract(this.providers, {
+    const contract = await deployContract(await this.getProviders(), {
       compiledContract: compiled,
       args: [HushHeron.pureCircuits.creatorCommitment(creatorSecret)],
       privateStateId: 'hushheronState',
@@ -145,7 +171,7 @@ export class WalletSession {
   }
 
   private async join(address: string, secret: Uint8Array) {
-    return findDeployedContract(this.providers, {
+    return findDeployedContract(await this.getProviders(), {
       contractAddress: address as ContractAddress,
       compiledContract: compiled,
       privateStateId: 'hushheronState',
