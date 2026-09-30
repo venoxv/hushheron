@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { listSurveys, mutateStore } from '@/lib/store';
+import { parsePublicEncryptionKey } from '@/lib/public-key';
 import type { Survey } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -14,14 +15,15 @@ export async function POST(request: Request) {
       typeof input.contractAddress !== 'string' || input.contractAddress.length < 20 ||
       typeof input.title !== 'string' || !input.title.trim() || input.title.length > 80 ||
       typeof input.question !== 'string' || !input.question.trim() || input.question.length > 180 ||
-      typeof input.description !== 'string' || input.description.length > 280 ||
-      !input.publicKey || input.publicKey.kty !== 'RSA' || input.publicKey.alg !== 'RSA-OAEP-256') {
+      typeof input.description !== 'string' || input.description.length > 280) {
     return NextResponse.json({ error: 'Invalid survey details' }, { status: 400 });
   }
+  const publicKey = await parsePublicEncryptionKey(input.publicKey);
+  if (!publicKey) return NextResponse.json({ error: 'Invalid public encryption key' }, { status: 400 });
   const survey: Survey = {
     id: input.id!, title: input.title.trim(), question: input.question.trim(),
     description: input.description.trim(), contractAddress: input.contractAddress,
-    publicKey: input.publicKey, createdAt: new Date().toISOString(),
+    publicKey, createdAt: new Date().toISOString(),
   };
   try {
     await mutateStore((db) => {
