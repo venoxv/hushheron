@@ -6,6 +6,8 @@ import type { Survey } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
+class DuplicateSurveyError extends Error {}
+
 export async function GET() {
   return NextResponse.json(await listSurveys());
 }
@@ -27,11 +29,15 @@ export async function POST(request: Request) {
   };
   try {
     await mutateStore((db) => {
-      if (db.surveys.some((item) => item.id === survey.id)) throw new Error('Survey already exists');
+      if (db.surveys.some((item) => item.id === survey.id)) throw new DuplicateSurveyError('Survey already exists');
       db.surveys.unshift(survey);
     });
     return NextResponse.json(survey, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Survey already exists' }, { status: 409 });
+  } catch (error) {
+    if (error instanceof DuplicateSurveyError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    console.error('Failed to save survey', error);
+    return NextResponse.json({ error: 'Failed to save survey' }, { status: 500 });
   }
 }
