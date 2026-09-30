@@ -41,9 +41,10 @@ export default function Dashboard() {
   const mine = surveys.filter((survey) => hasSurveyKey(survey.id)).length;
   const unknownState = surveys.some((survey) => !chainStates[survey.id]);
   const openCount = surveys.filter((survey) => chainStates[survey.id] && !chainStates[survey.id]!.isClosed).length;
+  const openLabel = loading || checkingChain ? '—' : unknownState ? openCount ? `${openCount}+` : '—' : String(openCount);
   return <>
     <div className="page-heading"><div><div className="eyebrow">Your space</div><h1 className="serif">Good to hear from you.</h1><p className="muted">Find a conversation to join, or start one of your own.</p></div><Link className="button" href="/app/create">Create survey ↗</Link></div>
-    <div className="stats"><div className="stat card"><div className="eyebrow">Open conversations</div><strong>{loading || checkingChain || unknownState ? '—' : openCount}</strong></div><div className="stat card"><div className="eyebrow">Created here</div><strong>{loading ? '—' : mine}</strong></div><div className="stat card"><div className="eyebrow">Network</div><strong style={{ fontSize: 27, paddingTop: 11 }}>Preprod <span className="dot" /></strong></div></div>
+    <div className="stats"><div className="stat card"><div className="eyebrow">Open conversations</div><strong title={unknownState && !checkingChain ? 'At least this many; some chain statuses are unavailable' : undefined}>{openLabel}</strong></div><div className="stat card"><div className="eyebrow">Created here</div><strong>{loading ? '—' : mine}</strong></div><div className="stat card"><div className="eyebrow">Network</div><strong style={{ fontSize: 27, paddingTop: 11 }}>Preprod <span className="dot" /></strong></div></div>
     <div className="section-heading" style={{ marginBottom: 18 }}><div><div className="eyebrow">Discover</div><h2 className="serif" style={{ fontSize: 33 }}>Available surveys</h2></div></div>
     {error && <div className="error" role="alert">{error}</div>}
     {loading ? <div className="empty">Loading surveys…</div> : surveys.length ? <div className="survey-grid">
