@@ -2,13 +2,14 @@
 
 import { createContext, useContext, useRef, useState } from 'react';
 import type { InitialAPI } from '@midnight-ntwrk/dapp-connector-api';
-import type { WalletSession } from '@/lib/midnight-client';
+import { WalletConnection } from '@/lib/wallet-connection';
 import { shortAddress } from '@/lib/types';
 
 type WalletOption = { id: string; name: string };
 type WalletContextValue = {
-  session: WalletSession | null;
+  session: WalletConnection | null;
   busy: boolean;
+  busyLabel: string;
   open: () => Promise<void>;
   disconnect: () => void;
 };
@@ -32,8 +33,9 @@ function walletMessage(cause: unknown): string {
 }
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<WalletSession | null>(null);
+  const [session, setSession] = useState<WalletConnection | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState('Connecting…');
   const [error, setError] = useState('');
   const [options, setOptions] = useState<WalletOption[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -42,20 +44,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   async function connect(id: string) {
     if (connecting.current) return;
     connecting.current = true;
-    setBusy(true); setError('');
+    setBusy(true); setBusyLabel('Waiting for Lace…'); setError('');
     try {
       const initial = walletRegistry()[id];
       if (!initial || !/^4\./.test(initial.apiVersion ?? '')) throw new Error('A compatible Midnight wallet was not found');
       // Ask the extension within the original click gesture. Importing the
       // contract bundle first can cause a cold wallet popup to be rejected.
       const api = await initial.connect('preprod');
-      const { WalletSession } = await import('@/lib/midnight-client');
-      setSession(await WalletSession.fromConnected(api));
+      setBusyLabel('Reading wallet details…');
+      setSession(await WalletConnection.fromConnected(api));
       setOptions([]);
       setPickerOpen(false);
     } catch (cause) {
       setError(walletMessage(cause));
-    } finally { connecting.current = false; setBusy(false); }
+    } finally { connecting.current = false; setBusy(false); setBusyLabel('Connecting…'); }
   }
 
   async function open() {
@@ -77,7 +79,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setError('');
   }
 
-  return <WalletContext.Provider value={{ session, busy, open, disconnect }}>
+  return <WalletContext.Provider value={{ session, busy, busyLabel, open, disconnect }}>
     {children}
     {pickerOpen && <div className="wallet-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setPickerOpen(false); }}>
       <div className="wallet-dialog card" role="dialog" aria-modal="true" aria-labelledby="wallet-dialog-title">
@@ -100,5 +102,5 @@ export function WalletButton() {
   const wallet = useWallet();
   return wallet.session
     ? <button className="pill" onClick={wallet.disconnect} title="Disconnect wallet"><span className="dot" />{shortAddress(wallet.session.address)} <span className="muted">×</span></button>
-    : <button className="button outline" onClick={wallet.open} disabled={wallet.busy}>{wallet.busy ? 'Connecting…' : 'Connect wallet'}</button>;
+    : <button className="button outline" onClick={wallet.open} disabled={wallet.busy}>{wallet.busy ? wallet.busyLabel : 'Connect wallet'}</button>;
 }

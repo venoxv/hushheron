@@ -93,23 +93,12 @@ export class WalletSession {
     private readonly addresses: ShieldedAddresses,
   ) {}
 
-  static async fromConnected(api: ConnectedAPI): Promise<WalletSession> {
+  static fromVerified(api: ConnectedAPI, config: Configuration, addresses: ShieldedAddresses): WalletSession {
     setNetworkId('preprod');
-    // Connector calls are sequential: some extensions prompt for each permission.
-    const status = await api.getConnectionStatus();
-    const config = await api.getConfiguration();
-    if (status.status !== 'connected' || config.networkId !== 'preprod') {
+    if (config.networkId !== 'preprod') {
       throw new Error('Switch your wallet to Midnight Preprod and reconnect');
     }
-    const addresses = await api.getShieldedAddresses();
-    if (!addresses.shieldedCoinPublicKey || !addresses.shieldedEncryptionPublicKey) {
-      throw new Error('The wallet did not provide the shielded keys needed for Midnight transactions');
-    }
-    // The unshielded address is for display only; proof and transaction setup
-    // must not turn a successful connection into a failed connection.
-    let address = addresses.shieldedAddress;
-    try { address = (await api.getUnshieldedAddress()).unshieldedAddress; } catch { /* display the shielded address */ }
-    return new WalletSession(api, address, config, addresses);
+    return new WalletSession(api, addresses.shieldedAddress, config, addresses);
   }
 
   private async makeProviders(): Promise<Providers> {
