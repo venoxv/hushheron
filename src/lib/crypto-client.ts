@@ -23,7 +23,17 @@ export async function createSurveyKeys(surveyId: string): Promise<JsonWebKey> {
 }
 
 export function hasSurveyKey(surveyId: string): boolean {
-  return typeof window !== 'undefined' && !!localStorage.getItem(`hushheron:decrypt:${surveyId}`);
+  if (typeof window === 'undefined') return false;
+  const secret = localStorage.getItem(`hushheron:creator:${surveyId}`);
+  const decrypt = localStorage.getItem(`hushheron:decrypt:${surveyId}`);
+  if (!secret || !/^[0-9a-f]{64}$/i.test(secret) || !decrypt) return false;
+  try {
+    const key = JSON.parse(decrypt) as JsonWebKey;
+    return key.kty === 'RSA' && key.alg === 'RSA-OAEP-256' &&
+      typeof key.n === 'string' && typeof key.e === 'string' && typeof key.d === 'string';
+  } catch {
+    return false;
+  }
 }
 
 export function exportSurveyBackup(surveyId: string): string {
