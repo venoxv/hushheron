@@ -24,5 +24,11 @@ export const randomSecret = (): Uint8Array => crypto.getRandomValues(new Uint8Ar
 export const isCommitment = (value: unknown): value is string =>
   typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value);
 
+export const isSurveyId = (value: unknown): value is string =>
+  typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+export const isContractAddress = (value: unknown): value is string =>
+  typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value);
+
 export const shortAddress = (value: string): string =>
   value.length > 18 ? `${value.slice(0, 9)}…${value.slice(-7)}` : value;
