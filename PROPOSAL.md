@@ -1,4 +1,6 @@
-# Product Proposal
+# Product Proposal: Anonymous Feedback / Survey
+
+Selected idea from the organizer's Level 3 list: **Anonymous Feedback / Survey**.
 
 ## What is the product, and who uses it?
 
@@ -25,8 +27,8 @@ Midnight lets the participant prove membership in the approved credential tree a
 
 ## Mainnet Feasibility
 
-The Compact contract and wallet flow target current Preprod APIs. Before Mainnet, the directory needs authenticated, durable storage and abuse controls; the creator key needs stronger custody; and the app needs real wallet, proof, settlement, and anonymity testing with several participants. No Mainnet readiness or organizer approval is claimed here.
+The Compact contract and wallet flow target Preprod. Before wider hosting or Mainnet, the directory needs durable storage and abuse controls, the creator key needs stronger custody, and the full flow needs broader multi-participant and anonymity testing. The [Preprod `submitAnswer` transaction](https://preprod.midnightexplorer.com/transactions/0x08c4c9a5ef7a67a80c20edab12b860b12f279b5b602856f83cbfc754df48db59) demonstrates one live circuit call; it does not establish Mainnet readiness.
 
 ## Approval
 
-Pending submission to Rise In. The creator must submit this proposal and record the decision.
+No Rise In submission receipt or organizer decision has been provided. Submission and approval remain pending; add the receipt and decision link here when available.
