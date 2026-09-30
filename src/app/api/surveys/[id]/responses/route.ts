@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getResponses, getSurvey, mutateStore } from '@/lib/store';
 import { isCommitment } from '@/lib/types';
+import { isEncryptedResponse } from '@/lib/response-validation';
 
 export const runtime = 'nodejs';
 
@@ -13,9 +14,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const input = await request.json().catch(() => null) as { commitment?: unknown; ciphertext?: unknown } | null;
-  if (!(await getSurvey(id))) return NextResponse.json({ error: 'Survey not found' }, { status: 404 });
-  if (!isCommitment(input?.commitment) || typeof input?.ciphertext !== 'string' ||
-      !/^[A-Za-z0-9+/]+={0,2}$/.test(input.ciphertext) || input.ciphertext.length > 1000) {
+  const survey = await getSurvey(id);
+  if (!survey) return NextResponse.json({ error: 'Survey not found' }, { status: 404 });
+  if (!isCommitment(input?.commitment) || !isEncryptedResponse(input?.ciphertext, survey.publicKey)) {
     return NextResponse.json({ error: 'Invalid encrypted response' }, { status: 400 });
   }
   await mutateStore((db) => {
