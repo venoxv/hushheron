@@ -12,10 +12,10 @@ Not deployed yet. The app runs locally with `npm run dev`; a public deployment n
 
 | Network | Address | Status |
 | --- | --- | --- |
-| Preprod | Pending funded wallet deployment | Not verified |
+| Preprod | `ee0be044c2949437fe5d7b8c6e44e3f7f9769223a11f6819d8eaa824cc48ad10` | Deployed; transaction `89035d9763a70c69407dc842a10d93757e9289d685eb60730a5d751ad8455b31`, block 2762863 |
 | Preview | Not deployed | Not verified |
 
-No address is fabricated. Publishing the first survey from the app deploys a new contract and displays its address; copy that verified address into this table after inspecting it on a Preprod explorer.
+The Preprod address above belongs to a survey deployed on September 29, 2026. Its explorer record is captured in [the deployment screenshot](public/deployedcontract.png). Each newly published survey receives its own contract address.
 
 ## What This Does
 
@@ -90,7 +90,7 @@ Pending recording. In one minute: show the Preprod address, connect Lace, publis
 
 ## Screenshots
 
-Pending: successful Compact compile with the three circuit names; 3-test output; deployed Preprod contract address on an explorer; and a passing CI run. Screenshots should be captured from real commands and transactions.
+[Compact compile](public/successcompile.png), [three generated-contract tests passing](public/3test.png), and [Preprod contract deployment](public/deployedcontract.png) are captured from actual commands and the explorer. A passing CI run screenshot is still pending.
 
 ## Current Level 1–3 status
 
@@ -100,11 +100,11 @@ Pending: successful Compact compile with the three circuit names; 3-test output;
 | Three tests pass | Verified locally | `npm test` |
 | Next.js build | Verified locally | `npm run build` |
 | Wallet connect and circuit call | Implemented, live verification pending | Needs a funded Preprod wallet and proof setup |
-| Preprod deployment and address | Pending | No funded wallet was available in this build session |
+| Preprod deployment and address | Verified | Address, transaction, block, and explorer screenshot above |
 | Live demo and video | Pending | Deployment and recording |
 | CI passing run | Pending | Workflow exists; repository is not published |
 | Idea approval | Pending | Rise In submission |
-| 5/8/10 meaningful commits | Pending | Organizer asks the owner to make commits manually |
+| 10+ meaningful commits | Verified locally | Focused conventional commits in Git history |
 
 ## Hosting note
 
