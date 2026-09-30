@@ -1,4 +1,4 @@
-import { hex, randomSecret, unhex } from './types';
+import { hex, isSurveyId, randomSecret, unhex } from './types';
 
 export function secretFor(surveyId: string, role: 'creator' | 'participant'): Uint8Array {
   const key = `hushheron:${role}:${surveyId}`;
@@ -43,13 +43,27 @@ export function exportSurveyBackup(surveyId: string): string {
   return JSON.stringify({ version: 1, surveyId, secret, decrypt: JSON.parse(decrypt) });
 }
 
-export function importSurveyBackup(value: string): string {
+export async function importSurveyBackup(value: string): Promise<string> {
   const data = JSON.parse(value) as { version?: number; surveyId?: string; secret?: string; decrypt?: JsonWebKey };
-  if (data.version !== 1 || !data.surveyId || !data.decrypt || !data.secret || !/^[0-9a-f]{64}$/i.test(data.secret)) {
+  if (data.version !== 1 || !isSurveyId(data.surveyId) || !data.decrypt || !data.secret || !/^[0-9a-f]{64}$/i.test(data.secret)) {
     throw new Error('Invalid backup');
   }
-  localStorage.setItem(`hushheron:creator:${data.surveyId}`, data.secret);
-  localStorage.setItem(`hushheron:decrypt:${data.surveyId}`, JSON.stringify(data.decrypt));
+  try {
+    const key = await crypto.subtle.importKey('jwk', data.decrypt, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
+    if ((key.algorithm as RsaHashedKeyAlgorithm).modulusLength !== 2048) throw new Error('Unsupported key size');
+  } catch {
+    throw new Error('Invalid backup decryption key');
+  }
+  const secretKey = `hushheron:creator:${data.surveyId}`;
+  const decryptKey = `hushheron:decrypt:${data.surveyId}`;
+  const savedSecret = localStorage.getItem(secretKey);
+  const savedKey = localStorage.getItem(decryptKey);
+  if ((savedSecret && savedSecret !== data.secret) ||
+      (savedKey && JSON.stringify(JSON.parse(savedKey) as JsonWebKey) !== JSON.stringify(data.decrypt))) {
+    throw new Error('This browser already holds different keys for that survey');
+  }
+  localStorage.setItem(secretKey, data.secret);
+  localStorage.setItem(decryptKey, JSON.stringify(data.decrypt));
   return data.surveyId;
 }
 
