@@ -72,8 +72,10 @@ export function Participation({ survey }: { survey: Survey }) {
   }
 
   async function copyApprovalCode() {
-    await navigator.clipboard.writeText(credential);
-    setStatus('Approval code copied. Send it to the creator through your existing trusted channel.');
+    try {
+      await navigator.clipboard.writeText(credential);
+      setError(''); setStatus('Approval code copied. Send it to the creator through your existing trusted channel.');
+    } catch { setStatus(''); setError('Could not copy the approval code. Allow clipboard access and try again.'); }
   }
 
   async function uploadResponse(pending: Pending) {

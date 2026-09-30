@@ -81,13 +81,17 @@ export function Results({ survey }: { survey: Survey }) {
   }
 
   async function copyShare() {
-    await navigator.clipboard.writeText(`${location.origin}/app/survey/${survey.id}`);
-    setNotice('Survey link copied.');
+    try {
+      await navigator.clipboard.writeText(`${location.origin}/app/survey/${survey.id}`);
+      setError(''); setNotice('Survey link copied.');
+    } catch { setNotice(''); setError('Could not copy the survey link. Allow clipboard access and try again.'); }
   }
 
   async function copyBackup() {
-    await navigator.clipboard.writeText(exportSurveyBackup(survey.id));
-    setNotice('Private survey backup copied. Store it safely.');
+    try {
+      await navigator.clipboard.writeText(exportSurveyBackup(survey.id));
+      setError(''); setNotice('Private survey backup copied. Store it safely.');
+    } catch { setNotice(''); setError('Could not copy the private backup. Allow clipboard access and try again.'); }
   }
 
   const approved = new Set(state?.approved ?? []);

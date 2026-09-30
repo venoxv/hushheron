@@ -71,11 +71,13 @@ export default function CreateSurvey() {
 
   async function copyBackup() {
     if (!published) return;
-    await navigator.clipboard.writeText(exportSurveyBackup(published.id));
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(exportSurveyBackup(published.id));
+      setCopied(true); setError('');
+    } catch { setError('Could not copy the private backup. Allow clipboard access and try again.'); }
   }
 
-  if (published) return <div className="detail-grid"><div className="detail-card card"><div className="eyebrow">Published on Preprod</div><h1 className="serif" style={{ fontSize: 48, margin: '14px 0' }}>Your space is open.</h1><p className="muted">Share the survey, then approve participant requests from the results page. Keep your key backup safe so you can decrypt the aggregate later.</p><div className="code-box" style={{ margin: '22px 0' }}>{typeof window !== 'undefined' ? `${location.origin}/app/survey/${published.id}` : published.id}</div><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><Link className="button" href={`/app/survey/${published.id}/results`}>Open creator view ↗</Link><button className="button outline" onClick={copyBackup}>{copied ? 'Backup copied' : 'Copy private backup'}</button></div></div><div className="detail-card card"><div className="eyebrow">On-chain contract</div><h2 className="serif">Verified from the start.</h2><div className="code-box">{published.contractAddress}</div><p className="muted">This address is public. Your creator secret and decryption key stay in this browser until you export them.</p></div></div>;
+  if (published) return <div className="detail-grid"><div className="detail-card card"><div className="eyebrow">Published on Preprod</div><h1 className="serif" style={{ fontSize: 48, margin: '14px 0' }}>Your space is open.</h1><p className="muted">Share the survey, then approve participant requests from the results page. Keep your key backup safe so you can decrypt the aggregate later.</p><div className="code-box" style={{ margin: '22px 0' }}>{typeof window !== 'undefined' ? `${location.origin}/app/survey/${published.id}` : published.id}</div>{error && <div className="error" role="alert" style={{ marginBottom: 15 }}>{error}</div>}<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><Link className="button" href={`/app/survey/${published.id}/results`}>Open creator view ↗</Link><button className="button outline" onClick={copyBackup}>{copied ? 'Backup copied' : 'Copy private backup'}</button></div></div><div className="detail-card card"><div className="eyebrow">On-chain contract</div><h2 className="serif">Verified from the start.</h2><div className="code-box">{published.contractAddress}</div><p className="muted">This address is public. Your creator secret and decryption key stay in this browser until you export them.</p></div></div>;
 
   return <>
     <div className="page-heading"><div><div className="eyebrow">Create a survey</div><h1 className="serif">Make room for truth.</h1><p className="muted">One focused question. Private answers. Verifiable participation.</p></div></div>
